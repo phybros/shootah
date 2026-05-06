@@ -1,0 +1,8 @@
+[
+{
+  "directory": "/Users/will/gamedev/shootah/build",
+  "command": "/usr/bin/cc  -isystem /opt/homebrew/Cellar/raylib/5.5/include -std=c99 -arch arm64 -Wall -Wextra -Wpedantic -I/opt/homebrew/Cellar/raylib/5.5/include -o CMakeFiles/shootah.dir/main.c.o -c /Users/will/gamedev/shootah/main.c",
+  "file": "/Users/will/gamedev/shootah/main.c",
+  "output": "CMakeFiles/shootah.dir/main.c.o"
+}
+]

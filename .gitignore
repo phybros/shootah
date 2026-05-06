@@ -1,0 +1,25 @@
+# Build output
+build/
+
+# Local tool/editor state
+.cache/
+.zed/
+.vscode/
+.idea/
+
+# OS metadata
+.DS_Store
+
+# Compiled artifacts
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dylib
+*.dll
+*.exe
+
+# Runtime logs/crash dumps
+*.log
+*.dSYM/
