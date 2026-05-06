@@ -5,6 +5,8 @@
 #include <string.h>
 #include <time.h>
 
+#define INIT_POWERUP_DELAY 30
+#define INIT_ENEMY_SPAWN_DELAY 0.5
 #define INIT_PLAYER_MOVE_SPEED 180.0
 #define INIT_PLAYER_SHOOT_DELAY 0.3
 #define INIT_PLAYER_BULLET_SPEED 500.0
@@ -15,6 +17,9 @@ float PLAYER_MOVE_SPEED = INIT_PLAYER_MOVE_SPEED;
 float PLAYER_SHOOT_DELAY = INIT_PLAYER_SHOOT_DELAY;
 float PLAYER_BULLET_SPEED = INIT_PLAYER_BULLET_SPEED;
 int WORLD_BORDER = INIT_WORLD_BORDER;
+float POWERUP_DELAY = INIT_POWERUP_DELAY;
+float ENEMY_SPAWN_DELAY = INIT_ENEMY_SPAWN_DELAY;
+bool PLAYER_INVINCIBLE = false;
 
 #define GAMEPAD_DEADZONE 0.2f
 #define MAX_OBJECTS 10000
@@ -26,6 +31,7 @@ typedef enum {
   t_player,
   t_enemy,
   t_bullet,
+  t_powerup,
 } o_type;
 
 typedef enum {
@@ -35,6 +41,9 @@ typedef enum {
   st_enemy_green,
   st_bullet_player,
   st_bullet_enemy,
+  st_powerup_shoot_speed,
+  st_powerup_move_speed,
+  st_powerup_invincible,
 } o_subtype;
 
 typedef int oid;
@@ -54,6 +63,12 @@ static const o_subtype ENEMY_SUBTYPES[] = {
     st_enemy_purple,
     st_enemy_orange,
     st_enemy_green,
+};
+
+static const o_subtype POWERUP_SUBTYPES[] = {
+    st_powerup_shoot_speed,
+    st_powerup_move_speed,
+    st_powerup_invincible,
 };
 
 Object objects[MAX_OBJECTS];
@@ -149,15 +164,15 @@ void spawn_enemy(void) {
     enemy.position = (Vector2){-outside, randbetween(0, screenHeight)};
     break;
   case 1:
-    enemy.position = (Vector2){screenWidth + outside,
-                               randbetween(0, screenHeight)};
+    enemy.position =
+        (Vector2){screenWidth + outside, randbetween(0, screenHeight)};
     break;
   case 2:
     enemy.position = (Vector2){randbetween(0, screenWidth), -outside};
     break;
   default:
-    enemy.position = (Vector2){randbetween(0, screenWidth),
-                               screenHeight + outside};
+    enemy.position =
+        (Vector2){randbetween(0, screenWidth), screenHeight + outside};
     break;
   }
 
@@ -284,6 +299,25 @@ void input(void) {
   objects[playerid].velocity.y = moveDir.y * PLAYER_MOVE_SPEED;
 }
 
+void spawn_powerup(Vector2 pos, o_subtype subtype) {
+  Object pup = {.id = add_object(),
+                .type = t_powerup,
+                .subtype = subtype,
+                .velocity = {0, 0},
+                .radius = 21,
+                .position = pos};
+  if (pup.id == 0) {
+    return;
+  }
+
+  objects[pup.id] = pup;
+}
+
+void spawn_random_powerup(Vector2 pos) {
+  o_subtype subtype = POWERUP_SUBTYPES[rand() % ARRAY_COUNT(POWERUP_SUBTYPES)];
+  spawn_powerup(pos, subtype);
+}
+
 float lastEnemySpawn = 0.0f;
 
 void update(void) {
@@ -295,9 +329,9 @@ void update(void) {
       continue;
     }
 
-    if (GetTime() - lastEnemySpawn > 0.5f) {
-        spawn_enemy();
-        lastEnemySpawn = GetTime();
+    if (GetTime() - lastEnemySpawn > ENEMY_SPAWN_DELAY) {
+      spawn_enemy();
+      lastEnemySpawn = GetTime();
     }
 
     // integrate velocity and rotation
@@ -344,10 +378,59 @@ void update(void) {
           float dist =
               Vector2Distance(objects[i].position, objects[j].position);
           if (dist <= objects[j].radius + objects[i].radius) {
+            Vector2 powerupPos = objects[j].position;
             // should probably do this at the end of frame or something
             remove_object(j);
-            continue;
+            remove_object(i);
+
+            if (randbetween(0, 100) > 90) {
+              spawn_random_powerup(powerupPos);
+            }
+            break;
           }
+        }
+
+        targetIndex++;
+      }
+    }
+
+    if (objects[i].type == t_player) {
+
+      for (int targetIndex = 0; targetIndex < active_object_count;) {
+        int j = active_objects[targetIndex];
+
+        if (j == i) {
+          targetIndex++;
+          continue;
+        }
+
+        float dist = Vector2Distance(objects[i].position, objects[j].position);
+        bool collided = dist <= objects[i].radius + objects[j].radius;
+
+        if (objects[j].type == t_enemy) {
+          // TODO: die
+          if (collided && !PLAYER_INVINCIBLE) {
+            printf("Should die here\n");
+          }
+        }
+
+        if (objects[j].type == t_powerup && collided) {
+          switch (objects[j].subtype) {
+          case st_powerup_move_speed:
+            PLAYER_MOVE_SPEED *= 1.5;
+            break;
+          case st_powerup_shoot_speed:
+            PLAYER_SHOOT_DELAY /= 2;
+            break;
+          case st_powerup_invincible:
+            PLAYER_INVINCIBLE = true;
+            break;
+          default:
+            break;
+          }
+
+          remove_object(objects[j].id);
+          continue;
         }
 
         targetIndex++;
@@ -421,6 +504,31 @@ void render_game(void) {
       case st_enemy_green:
         DrawPolyLinesEx(objects[i].position, 3, objects[i].radius,
                         objects[i].rotation, 2.0f, GREEN);
+        break;
+      default:
+        break;
+      }
+      break;
+    case t_powerup:
+      DrawCircleV(objects[i].position, objects[i].radius,
+                  (Color){0, 255, 255, 80});
+      DrawCircleLinesV(objects[i].position, objects[i].radius,
+                       (Color){0, 255, 255, 255});
+      DrawCircleLinesV(objects[i].position, objects[i].radius + 2,
+                       (Color){0, 255, 255, 255});
+
+      switch (objects[i].subtype) {
+      case st_powerup_move_speed:
+        DrawRectangle(objects[i].position.x - 6, objects[i].position.y - 6, 12,
+                      12, YELLOW);
+        break;
+      case st_powerup_shoot_speed:
+        DrawRectangle(objects[i].position.x - 6, objects[i].position.y - 6, 12,
+                      12, RED);
+        break;
+      case st_powerup_invincible:
+        DrawRectangle(objects[i].position.x - 6, objects[i].position.y - 6, 12,
+                      12, MAGENTA);
         break;
       default:
         break;
