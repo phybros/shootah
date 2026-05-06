@@ -9,12 +9,6 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 add_executable(shootah main.c)
 
-add_custom_command(TARGET shootah POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${CMAKE_CURRENT_SOURCE_DIR}/resources"
-        "$<TARGET_FILE_DIR:shootah>/resources"
-)
-
 target_compile_options(shootah PRIVATE
     $<$<C_COMPILER_ID:AppleClang,Clang,GNU>:-Wall -Wextra -Wpedantic>
 )
