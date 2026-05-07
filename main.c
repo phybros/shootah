@@ -39,6 +39,7 @@ typedef enum {
   st_enemy_purple,
   st_enemy_orange,
   st_enemy_green,
+  st_enemy_magenta,
   st_bullet_player,
   st_bullet_enemy,
   st_powerup_shoot_speed,
@@ -57,12 +58,15 @@ typedef struct {
   float radius;
   float rotationSpeed;
   float rotation;
+  float nextActionTime;
+  int phase;
 } Object;
 
 static const o_subtype ENEMY_SUBTYPES[] = {
     st_enemy_purple,
     st_enemy_orange,
     st_enemy_green,
+    st_enemy_magenta,
 };
 
 static const o_subtype POWERUP_SUBTYPES[] = {
@@ -118,6 +122,8 @@ float enemy_radius_for_subtype(o_subtype subtype) {
     return 25;
   case st_enemy_green:
     return 15;
+  case st_enemy_magenta:
+    return 22;
   default:
     return 0;
   }
@@ -140,6 +146,8 @@ float enemy_rotationSpeed_for_subtype(o_subtype subtype) {
     return 100.0f * dir;
   case st_enemy_green:
     return 600.0f * dir;
+  case st_enemy_magenta:
+    return 200.0f * dir;
   default:
     return 0;
   }
@@ -216,6 +224,20 @@ void player_shoot(Vector2 pos, Vector2 dir) {
       .radius = 3,
       .subtype = st_bullet_player,
       .velocity = {dir.x * PLAYER_BULLET_SPEED, dir.y * PLAYER_BULLET_SPEED}};
+  if (bullet.id == 0) {
+    return;
+  }
+
+  objects[bullet.id] = bullet;
+}
+
+void enemy_shoot(Vector2 pos, Vector2 dir) {
+  Object bullet = {.id = add_object(),
+                   .position = pos,
+                   .type = t_bullet,
+                   .radius = 3,
+                   .subtype = st_bullet_enemy,
+                   .velocity = {dir.x * 350.0f, dir.y * 350.0f}};
   if (bullet.id == 0) {
     return;
   }
@@ -445,8 +467,15 @@ void update(void) {
 
       switch (objects[i].subtype) {
       case st_enemy_purple:
-        objects[i].velocity.x = vel.x * 100;
-        objects[i].velocity.y = vel.y * 100;
+        if (GetTime() > objects[i].nextActionTime) {
+          float baseAngle = atan2f(vel.y, vel.x);
+          float jitter = randbetween(-75, 75) * DEG2RAD;
+          float a = baseAngle + jitter;
+          objects[i].velocity.x = cosf(a) * 100.0f;
+          objects[i].velocity.y = sinf(a) * 100.0f;
+          objects[i].nextActionTime =
+              GetTime() + (randbetween(50, 100) / 100.0f);
+        }
         break;
       case st_enemy_orange:
         objects[i].velocity.x = vel.x * 60;
@@ -455,6 +484,27 @@ void update(void) {
       case st_enemy_green:
         objects[i].velocity.x = vel.x * 40;
         objects[i].velocity.y = vel.y * 40;
+        break;
+      case st_enemy_magenta:
+        if (GetTime() > objects[i].nextActionTime) {
+          if (objects[i].phase == 1) {
+            // end move phase: stop and shoot
+            enemy_shoot(objects[i].position, vel);
+            objects[i].nextActionTime = GetTime() + 0.5f;
+            objects[i].phase = 2;
+          } else {
+            // start (or restart) move phase
+            objects[i].nextActionTime = GetTime() + 2.0f;
+            objects[i].phase = 1;
+          }
+        }
+        if (objects[i].phase == 1) {
+          objects[i].velocity.x = vel.x * 75.0f;
+          objects[i].velocity.y = vel.y * 75.0f;
+        } else {
+          objects[i].velocity.x = 0;
+          objects[i].velocity.y = 0;
+        }
         break;
       default:
         break;
@@ -504,6 +554,12 @@ void render_game(void) {
       case st_enemy_green:
         DrawPolyLinesEx(objects[i].position, 3, objects[i].radius,
                         objects[i].rotation, 2.0f, GREEN);
+        break;
+      case st_enemy_magenta:
+        for (int t = 0; t < 3; t++) {
+          DrawPolyLinesEx(objects[i].position, 3, objects[i].radius,
+                          objects[i].rotation + t * 40.0f, 2.0f, MAGENTA);
+        }
         break;
       default:
         break;
