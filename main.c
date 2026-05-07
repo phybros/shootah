@@ -445,16 +445,16 @@ void update(void) {
 
       switch (objects[i].subtype) {
       case st_enemy_purple:
-        objects[i].velocity.x = vel.x * 75;
-        objects[i].velocity.y = vel.y * 75;
+        objects[i].velocity.x = vel.x * 100;
+        objects[i].velocity.y = vel.y * 100;
         break;
       case st_enemy_orange:
-        objects[i].velocity.x = vel.x * 50;
-        objects[i].velocity.y = vel.y * 50;
+        objects[i].velocity.x = vel.x * 60;
+        objects[i].velocity.y = vel.y * 60;
         break;
       case st_enemy_green:
-        objects[i].velocity.x = vel.x * 20;
-        objects[i].velocity.y = vel.y * 20;
+        objects[i].velocity.x = vel.x * 40;
+        objects[i].velocity.y = vel.y * 40;
         break;
       default:
         break;
